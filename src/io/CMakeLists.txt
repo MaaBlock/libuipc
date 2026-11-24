@@ -12,6 +12,9 @@ else()
 endif()
 
 target_link_libraries(uipc_io PUBLIC uipc::core uipc::geometry)
+if(TARGET igl::igl_core)
+    target_link_libraries(uipc_io PRIVATE igl::igl_core)
+endif()
 
 target_compile_definitions(uipc_io PRIVATE UIPC_IO_EXPORT_DLL=1) # export dll
 
