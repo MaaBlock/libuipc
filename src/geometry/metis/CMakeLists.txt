@@ -20,6 +20,7 @@ set_target_properties(
         POSITION_INDEPENDENT_CODE ON
         FOLDER "components"
 )
+uipc_target_configure_compiler_defaults(uipc_metis)
 
 file(GLOB_RECURSE METIS_SOURCE_GROUP_FILES CONFIGURE_DEPENDS "*.h" "*.cpp")
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${METIS_SOURCE_GROUP_FILES})

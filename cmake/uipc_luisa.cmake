@@ -10,6 +10,11 @@
 #   add_subdirectory fallback when the prefix is unavailable (plan risk R1).
 # ---------------------------------------------------------------------------
 function(uipc_luisa_resolve_dependency)
+    if(TARGET luisa::compute)
+        uipc_info("Reusing existing 'luisa::compute' target from parent build.")
+        return()
+    endif()
+
     if(NOT DEFINED LUISA_COMPUTE_ROOT OR LUISA_COMPUTE_ROOT STREQUAL "")
         set(LUISA_COMPUTE_ROOT "C:/dev/LuisaCompute" CACHE PATH
             "LuisaCompute source root (its install prefix is <root>/install)")

@@ -188,9 +188,56 @@ function(uipc_config_vcpkg_install)
 endfunction()
 
 # -----------------------------------------------------------------------------------------
+# Configure uniform MSVC CRT / UTF-8 encoding defaults across libuipc targets
+# -----------------------------------------------------------------------------------------
+function(uipc_target_configure_compiler_defaults target_name)
+    if(MSVC)
+        set_target_properties(${target_name} PROPERTIES
+            MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+        )
+        target_compile_options(${target_name} PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:/utf-8>
+            $<$<COMPILE_LANGUAGE:C>:/utf-8>
+            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/utf-8>
+        )
+    endif()
+endfunction()
+
+# -----------------------------------------------------------------------------------------
 # Set the output directory for the target
 # -----------------------------------------------------------------------------------------
 function(uipc_target_set_output_directory target_name)
+    uipc_target_configure_compiler_defaults(${target_name})
+
+    if(DEFINED UIPC_RUNTIME_OUTPUT_DIR AND NOT "${UIPC_RUNTIME_OUTPUT_DIR}" STREQUAL "")
+        set(_uipc_bin_dir "${UIPC_RUNTIME_OUTPUT_DIR}")
+        if(DEFINED UIPC_LIBRARY_OUTPUT_DIR AND NOT "${UIPC_LIBRARY_OUTPUT_DIR}" STREQUAL "")
+            set(_uipc_lib_out_dir "${UIPC_LIBRARY_OUTPUT_DIR}")
+        else()
+            set(_uipc_lib_out_dir "${_uipc_bin_dir}")
+        endif()
+        if(DEFINED UIPC_ARCHIVE_OUTPUT_DIR AND NOT "${UIPC_ARCHIVE_OUTPUT_DIR}" STREQUAL "")
+            set(_uipc_arc_dir "${UIPC_ARCHIVE_OUTPUT_DIR}")
+        else()
+            set(_uipc_arc_dir "${CMAKE_CURRENT_BINARY_DIR}/lib")
+        endif()
+        set_target_properties(${target_name} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${_uipc_bin_dir}"
+            LIBRARY_OUTPUT_DIRECTORY "${_uipc_lib_out_dir}"
+            ARCHIVE_OUTPUT_DIRECTORY "${_uipc_arc_dir}"
+            RUNTIME_OUTPUT_DIRECTORY_DEBUG "${_uipc_bin_dir}"
+            RUNTIME_OUTPUT_DIRECTORY_RELEASE "${_uipc_bin_dir}"
+            RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${_uipc_bin_dir}"
+            LIBRARY_OUTPUT_DIRECTORY_DEBUG "${_uipc_lib_out_dir}"
+            LIBRARY_OUTPUT_DIRECTORY_RELEASE "${_uipc_lib_out_dir}"
+            LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO "${_uipc_lib_out_dir}"
+            ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${_uipc_arc_dir}"
+            ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${_uipc_arc_dir}"
+            ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO "${_uipc_arc_dir}"
+        )
+        return()
+    endif()
+
     if(WIN32) # if on windows, set the output directory with different configurations
         set_target_properties(${target_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/Debug/bin")
         set_target_properties(${target_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/Release/bin")
@@ -360,6 +407,9 @@ endfunction()
 # Install a target
 # -----------------------------------------------------------------------------------------
 function(uipc_install_target target_name)
+    if(NOT UIPC_ENABLE_INSTALL)
+        return()
+    endif()
     set(CONFIG_DIR "$<CONFIG>")
     if(NOT WIN32)
         if("${CMAKE_BUILD_TYPE}" STREQUAL "")

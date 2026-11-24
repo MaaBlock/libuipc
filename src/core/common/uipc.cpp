@@ -1,6 +1,5 @@
 #include <uipc/common/uipc.h>
 #include <filesystem>
-#include <cpptrace/cpptrace.hpp>
 #include <uipc/common/exception.h>
 
 namespace uipc

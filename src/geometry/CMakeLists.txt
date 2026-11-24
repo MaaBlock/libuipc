@@ -1,6 +1,9 @@
-find_package(libigl REQUIRED)
-find_package(TBB REQUIRED)
-find_package(Octree CONFIG REQUIRED)
+if(NOT TARGET igl::igl_core)
+    find_package(libigl REQUIRED)
+endif()
+if(NOT TARGET Octree::Octree)
+    find_package(Octree CONFIG REQUIRED)
+endif()
 
 add_subdirectory(metis)
 
@@ -15,7 +18,6 @@ target_link_libraries(uipc_geometry PRIVATE
     uipc::core
     igl::igl_core
     Octree::Octree
-    TBB::tbb
     uipc_metis
 )
 

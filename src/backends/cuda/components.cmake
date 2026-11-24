@@ -7,8 +7,14 @@ function(uipc_add_cuda_component name)
         "${CMAKE_CURRENT_SOURCE_DIR}/cuda_tool"
         ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
     if(CUDAToolkit_VERSION_MAJOR GREATER_EQUAL 13)
-        target_include_directories(${name} PRIVATE ${CUDAToolkit_INCLUDE_DIRS}/cccl)
+        target_include_directories(${name} PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+        foreach(_uipc_cuda_inc IN LISTS CUDAToolkit_INCLUDE_DIRS)
+            if(EXISTS "${_uipc_cuda_inc}/cccl")
+                target_include_directories(${name} PRIVATE "${_uipc_cuda_inc}/cccl")
+            endif()
+        endforeach()
     endif()
+    uipc_target_configure_compiler_defaults(${name})
     target_compile_definitions(${name} PRIVATE
         UIPC_BACKEND_EXPORT_DLL=1
         "-DUIPC_BACKEND_DIR=R\"(${UIPC_BACKENDS_SOURCE_DIR})\""

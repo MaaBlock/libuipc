@@ -5,7 +5,8 @@
 #include <Eigen/Core>
 #include <igl/winding_number.h>
 #include <vector>
-#include <tbb/tbb.h>
+#include <thread>
+#include <algorithm>
 #include <limits>
 #include <uipc/builtin/attribute_name.h>
 #include <uipc/geometry/utils/label_triangle_orient.h>
@@ -46,31 +47,85 @@ namespace detail
 
         SizeT voxel_count = nx * ny * nz;
 
-        // 3. parallel for loop to generate points
-        tbb::concurrent_vector<Vector3> inside_points;
-        inside_points.reserve(voxel_count);
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, voxel_count),
-                          [&](const tbb::blocked_range<size_t>& r)
-                          {
-                              for(size_t i = r.begin(); i < r.end(); ++i)
-                              {
-                                  Eigen::Matrix<Float, 1, 3> Q;
-                                  size_t          ix = i % nx;
-                                  size_t          iy = (i / nx) % ny;
-                                  size_t          iz = i / (nx * ny);
-                                  Q(0, 0) = min_corner.x() + ix * resolution;
-                                  Q(0, 1) = min_corner.y() + iy * resolution;
-                                  Q(0, 2) = min_corner.z() + iz * resolution;
-                                  Eigen::VectorXd wn;
-                                  igl::winding_number(V, F, Q, wn);
-                                  if(wn[0] > 0.5)
-                                  {
-                                      inside_points.push_back(Q.row(0));
-                                  }
-                              }
-                          });
+        // 3. parallel for loop to generate points (std::thread chunked, zero TBB)
+        std::vector<Vector3> vertex_indices;
+        if(voxel_count > 0)
+        {
+            const size_t worker_count =
+                (voxel_count >= 256)
+                    ? std::min<size_t>(
+                          voxel_count,
+                          std::max<size_t>(1u, std::thread::hardware_concurrency()))
+                    : 1u;
 
-        std::vector<Vector3> vertex_indices{inside_points.begin(), inside_points.end()};
+            if(worker_count <= 1)
+            {
+                vertex_indices.reserve(voxel_count / 4);
+                for(size_t i = 0; i < voxel_count; ++i)
+                {
+                    Eigen::Matrix<Float, 1, 3> Q;
+                    size_t                     ix = i % nx;
+                    size_t                     iy = (i / nx) % ny;
+                    size_t                     iz = i / (nx * ny);
+                    Q(0, 0) = min_corner.x() + ix * resolution;
+                    Q(0, 1) = min_corner.y() + iy * resolution;
+                    Q(0, 2) = min_corner.z() + iz * resolution;
+                    Eigen::VectorXd wn;
+                    igl::winding_number(V, F, Q, wn);
+                    if(wn[0] > 0.5)
+                    {
+                        vertex_indices.push_back(Q.row(0));
+                    }
+                }
+            }
+            else
+            {
+                std::vector<std::vector<Vector3>> thread_points(worker_count);
+                std::vector<std::thread>          workers;
+                workers.reserve(worker_count);
+                const size_t chunk = (voxel_count + worker_count - 1) / worker_count;
+
+                for(size_t t = 0; t < worker_count; ++t)
+                {
+                    const size_t begin = t * chunk;
+                    const size_t end   = std::min(voxel_count, begin + chunk);
+                    if(begin >= end)
+                        continue;
+
+                    workers.emplace_back(
+                        [&, t, begin, end]()
+                        {
+                            auto& local_pts = thread_points[t];
+                            for(size_t i = begin; i < end; ++i)
+                            {
+                                Eigen::Matrix<Float, 1, 3> Q;
+                                size_t                     ix = i % nx;
+                                size_t                     iy = (i / nx) % ny;
+                                size_t                     iz = i / (nx * ny);
+                                Q(0, 0) = min_corner.x() + ix * resolution;
+                                Q(0, 1) = min_corner.y() + iy * resolution;
+                                Q(0, 2) = min_corner.z() + iz * resolution;
+                                Eigen::VectorXd wn;
+                                igl::winding_number(V, F, Q, wn);
+                                if(wn[0] > 0.5)
+                                {
+                                    local_pts.push_back(Q.row(0));
+                                }
+                            }
+                        });
+                }
+
+                for(auto& w : workers)
+                    w.join();
+
+                size_t total = 0;
+                for(const auto& pts : thread_points)
+                    total += pts.size();
+                vertex_indices.reserve(total);
+                for(auto& pts : thread_points)
+                    vertex_indices.insert(vertex_indices.end(), pts.begin(), pts.end());
+            }
+        }
         return pointcloud(vertex_indices);
     }
 }  // namespace detail

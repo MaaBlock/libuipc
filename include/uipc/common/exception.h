@@ -1,12 +1,11 @@
 #pragma once
 #include <uipc/common/string.h>
 #include <uipc/common/dllexport.h>
-#include <exception>
-#include <cpptrace/cpptrace.hpp>
+#include <stdexcept>
 
 namespace uipc
 {
-class UIPC_CORE_API Exception : public cpptrace::exception_with_message
+class UIPC_CORE_API Exception : public std::runtime_error
 {
   public:
     Exception(std::string_view msg);

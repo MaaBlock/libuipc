@@ -4,7 +4,7 @@
 namespace uipc
 {
 Exception::Exception(std::string_view msg)
-    : cpptrace::exception_with_message{std::string{msg}}
+    : std::runtime_error{std::string{msg}}
 {
 }
 }  // namespace uipc
