@@ -200,6 +200,10 @@ function(uipc_target_configure_compiler_defaults target_name)
             $<$<COMPILE_LANGUAGE:C>:/utf-8>
             $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/utf-8>
         )
+        # Note: nvcc device parser evaluates fmt's compile-time UTF-8 literal check under host codepage even with -Xcompiler=/utf-8
+        target_compile_definitions(${target_name} PRIVATE
+            $<$<COMPILE_LANGUAGE:CUDA>:FMT_UNICODE=0>
+        )
     endif()
 endfunction()
 
